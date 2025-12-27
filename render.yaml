@@ -17,8 +17,9 @@ services:
     name: devtrifecta-ui
     env: node
     plan: free
-    buildCommand: "npm --prefix frontend install && npm --prefix frontend run build"
-    startCommand: "node frontend/server.js"
+    rootDir: frontend
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run serve"
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
