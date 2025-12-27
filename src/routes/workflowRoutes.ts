@@ -115,6 +115,108 @@ router.post('/:id/execute', async (req: Request, res: Response) => {
   }
 });
 
+// Quickstart: create a workflow from a single prompt and pre-generate steps
+router.post('/quickstart', async (req: Request, res: Response) => {
+  try {
+    const { prompt } = req.body || {};
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ error: 'prompt is required' });
+    }
+
+    // Basic heuristics to create phases and steps
+    const phases = ['brd', 'design', 'journey', 'testing'];
+    const steps = phases.map((phase, idx) => ({
+      id: `step-${phase}-${idx + 1}`,
+      phase,
+      title: phase === 'brd'
+        ? 'Business Requirements'
+        : phase === 'design'
+        ? 'Design & Wireframes'
+        : phase === 'journey'
+        ? 'User Journeys'
+        : 'Test Cases',
+      status: 'completed',
+      order: idx,
+      result: {
+        summary: `Auto-generated ${phase} from prompt.`,
+        content: `Source prompt: ${prompt}`
+      }
+    }));
+
+    // Generate follow-up question if the prompt is too short
+    const questions = prompt.trim().length < 60
+      ? [
+          {
+            id: 'q-target-audience',
+            text: 'Who is the target audience for this project?',
+            type: 'text',
+            required: false
+          }
+        ]
+      : [];
+
+    const payload: any = {
+      name: prompt.slice(0, 80),
+      description: prompt,
+      phases,
+      steps,
+      status: 'in-progress',
+      formData: { initialPrompt: prompt },
+      questions
+    };
+
+    if (Workflow.db?.readyState === 1) {
+      const created = await Workflow.create(payload);
+      return res.status(201).json(created);
+    }
+    const wf = { id: `${Date.now()}`, ...payload, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    inMemory.push(wf);
+    return res.status(201).json(wf);
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to quickstart workflow' });
+  }
+});
+
+// Answer follow-up questions and merge into formData
+router.post('/:id/answer', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { answers } = req.body || {};
+    if (!Array.isArray(answers)) {
+      return res.status(400).json({ error: 'answers must be an array of {id, answer}' });
+    }
+
+    if (Workflow.db?.readyState === 1) {
+      const wf = await Workflow.findById(id);
+      if (!wf) return res.status(404).json({ error: 'Workflow not found' });
+      const q = Array.isArray((wf as any).questions) ? (wf as any).questions : [];
+      const updatedQ = q.map((item: any) => {
+        const found = answers.find((a: any) => a.id === item.id);
+        return found ? { ...item, answer: found.answer } : item;
+      });
+      const mergedForm = { ...(wf as any).formData, ...Object.fromEntries(answers.map((a: any) => [a.id, a.answer])) };
+      wf.set('questions', updatedQ);
+      wf.set('formData', mergedForm);
+      await wf.save();
+      return res.json(wf.toObject());
+    }
+    const idx = inMemory.findIndex((w: any) => w.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'Workflow not found' });
+    const wf = inMemory[idx];
+    const q = Array.isArray(wf.questions) ? wf.questions : [];
+    const updatedQ = q.map((item: any) => {
+      const found = answers.find((a: any) => a.id === item.id);
+      return found ? { ...item, answer: found.answer } : item;
+    });
+    const mergedForm = { ...(wf.formData || {}), ...Object.fromEntries(answers.map((a: any) => [a.id, a.answer])) };
+    const updated = { ...wf, questions: updatedQ, formData: mergedForm, updatedAt: new Date().toISOString() };
+    inMemory[idx] = updated;
+    return res.json(updated);
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to submit answers' });
+  }
+});
+
 router.get('/templates/list', (req: Request, res: Response) => {
   const templates = [
     { id: 'tmpl-project-lifecycle', name: 'Full Project Lifecycle' },

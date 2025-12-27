@@ -10,6 +10,13 @@ export interface WorkflowDoc extends Document {
   formData?: Record<string, unknown>;
   status?: string;
   lastRunAt?: Date;
+  questions?: Array<{
+    id: string;
+    text: string;
+    type?: string;
+    required?: boolean;
+    answer?: unknown;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,7 +31,8 @@ const WorkflowSchema = new Schema<WorkflowDoc>(
     phases: { type: [String], default: [] },
     formData: { type: Schema.Types.Mixed },
     status: { type: String, default: 'draft' },
-    lastRunAt: { type: Date }
+    lastRunAt: { type: Date },
+    questions: ({ type: [Schema.Types.Mixed] as any, default: [] } as any)
   },
   { timestamps: true }
 );

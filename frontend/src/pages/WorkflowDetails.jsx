@@ -25,6 +25,8 @@ export default function WorkflowDetails() {
   const [error, setError] = useState(null)
   const [expandedStep, setExpandedStep] = useState(null)
   const [stepResults, setStepResults] = useState({})
+  const [answers, setAnswers] = useState({})
+  const [savingAnswers, setSavingAnswers] = useState(false)
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000'
 
@@ -41,6 +43,7 @@ export default function WorkflowDetails() {
       if (workflowData) {
         workflowData.steps = Array.isArray(workflowData.steps) ? workflowData.steps : []
         workflowData.phases = Array.isArray(workflowData.phases) ? workflowData.phases : []
+        workflowData.questions = Array.isArray(workflowData.questions) ? workflowData.questions : []
       }
       setWorkflow(workflowData)
     } catch (err) {
@@ -83,6 +86,27 @@ export default function WorkflowDetails() {
     }
   }
 
+  const submitAnswers = async () => {
+    try {
+      setSavingAnswers(true)
+      const q = Array.isArray(workflow?.questions) ? workflow.questions : []
+      const payload = q
+        .filter(item => !item.answer && (answers[item.id] || answers[item.id] === ''))
+        .map(item => ({ id: item.id, answer: answers[item.id] }))
+
+      if (payload.length === 0) return
+
+      await axios.post(`${API_URL}/api/workflows/${id}/answer`, { answers: payload })
+      await fetchWorkflow()
+      setAnswers({})
+    } catch (err) {
+      console.error('Error submitting answers:', err)
+      setError('Failed to submit answers')
+    } finally {
+      setSavingAnswers(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-96">
@@ -119,6 +143,8 @@ export default function WorkflowDetails() {
   }
 
   const steps = workflow.steps || []
+  const questions = Array.isArray(workflow.questions) ? workflow.questions : []
+  const unanswered = questions.filter(q => !q?.answer)
 
   return (
     <div className="space-y-8">
@@ -181,6 +207,36 @@ export default function WorkflowDetails() {
           <p className="text-slate-300 text-sm">Progress</p>
         </div>
       </div>
+
+      {/* Follow-up Questions */}
+      {unanswered.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-2xl font-bold text-white">Follow-up Questions</h3>
+          <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-6 space-y-4">
+            {unanswered.map((q) => (
+              <div key={q.id} className="space-y-2">
+                <label className="block text-slate-200 font-medium">{q.text || q.question || 'Additional information'}</label>
+                <input
+                  className="form-input bg-slate-800/50 border-slate-600 text-white w-full"
+                  placeholder="Type your answer"
+                  value={answers[q.id] ?? ''}
+                  onChange={(e) => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                />
+              </div>
+            ))}
+            <div className="flex gap-3">
+              <button
+                onClick={submitAnswers}
+                disabled={savingAnswers}
+                className={`btn-primary ${savingAnswers ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {savingAnswers ? 'Saving…' : 'Submit Answers'}
+              </button>
+              <p className="text-slate-400 text-sm self-center">Answering helps improve generated deliverables.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Steps Timeline */}
       <div className="space-y-4">

@@ -38,6 +38,8 @@ export default function Dashboard() {
   const [workflows, setWorkflows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [quickPrompt, setQuickPrompt] = useState('')
+  const [quickLoading, setQuickLoading] = useState(false)
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000'
 
@@ -68,6 +70,23 @@ export default function Dashboard() {
     navigate(`/workflow/${workflowId}`)
   }
 
+  const handleQuickStart = async () => {
+    if (!quickPrompt.trim()) return
+    try {
+      setQuickLoading(true)
+      setError(null)
+      const response = await axios.post(`${API_URL}/api/workflows/quickstart`, { prompt: quickPrompt.trim() })
+      const wf = response.data
+      setQuickPrompt('')
+      navigate(`/workflow/${wf._id || wf.id}`)
+    } catch (err) {
+      console.error('Quickstart failed:', err)
+      setError('Failed to create workflow from prompt')
+    } finally {
+      setQuickLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-10">
       {/* Welcome Section */}
@@ -76,6 +95,26 @@ export default function Dashboard() {
         <p className="text-blue-100">
           Streamline your project workflow from requirements through design, wireframing, user journeys, and comprehensive testing.
         </p>
+      </div>
+
+      {/* Quick Start Section */}
+      <div className="space-y-4">
+        <h3 className="text-2xl font-bold text-white">Quick Start</h3>
+        <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-6">
+          <label className="block text-slate-300 mb-2">Describe your project (one prompt is enough):</label>
+          <textarea
+            className="form-textarea bg-slate-800/50 border-slate-600 text-white"
+            placeholder="e.g., Build a SaaS dashboard for SMB analytics with Stripe billing and role-based access"
+            value={quickPrompt}
+            onChange={e => setQuickPrompt(e.target.value)}
+          />
+          <div className="mt-3 flex gap-3">
+            <button onClick={handleQuickStart} disabled={quickLoading || !quickPrompt.trim()} className={`btn-primary ${quickLoading || !quickPrompt.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              {quickLoading ? 'Generating…' : 'Generate Workflow'}
+            </button>
+            <span className="text-slate-400 text-sm">We’ll generate BRD, Design, Journeys, and Test Cases and ask follow-ups only if needed.</span>
+          </div>
+        </div>
       </div>
 
       {/* Templates Section */}
