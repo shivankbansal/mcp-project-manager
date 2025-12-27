@@ -1,41 +1,33 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
-export interface WorkflowStep {
-  id: string;
-  name: string;
-  tool: string;
-  inputs?: Record<string, unknown>;
-  dependsOn?: string[];
-}
-
+// Make the persisted workflow flexible to support various UI shapes
 export interface WorkflowDoc extends Document {
   name: string;
   description?: string;
-  steps: WorkflowStep[];
+  steps: any[]; // store step objects as-is for compatibility
   tags?: string[];
+  phases?: string[];
+  formData?: Record<string, unknown>;
+  status?: string;
+  lastRunAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
-
-const WorkflowStepSchema = new Schema<WorkflowStep>(
-  {
-    id: { type: String, required: true },
-    name: { type: String, required: true },
-    tool: { type: String, required: true },
-    inputs: { type: Schema.Types.Mixed },
-    dependsOn: { type: [String], default: [] }
-  },
-  { _id: false }
-);
 
 const WorkflowSchema = new Schema<WorkflowDoc>(
   {
     name: { type: String, required: true, index: true },
     description: { type: String },
-    steps: { type: [WorkflowStepSchema], default: [] },
-    tags: { type: [String], default: [] }
+    // Allow arbitrary array of step objects (cast to satisfy TS)
+    steps: ({ type: [Schema.Types.Mixed] as any, default: [] } as any),
+    tags: { type: [String], default: [] },
+    phases: { type: [String], default: [] },
+    formData: { type: Schema.Types.Mixed },
+    status: { type: String, default: 'draft' },
+    lastRunAt: { type: Date }
   },
   { timestamps: true }
 );
 
-export const Workflow: Model<WorkflowDoc> = mongoose.models.Workflow || mongoose.model<WorkflowDoc>('Workflow', WorkflowSchema);
+export const Workflow: Model<WorkflowDoc> =
+  mongoose.models.Workflow || mongoose.model<WorkflowDoc>('Workflow', WorkflowSchema);

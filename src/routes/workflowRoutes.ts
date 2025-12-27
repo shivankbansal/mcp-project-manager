@@ -11,9 +11,9 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     if (Workflow.db?.readyState === 1) {
       const workflows = await Workflow.find().sort({ createdAt: -1 }).lean();
-      return res.json({ workflows });
+      return res.json(workflows);
     }
-    return res.json({ workflows: inMemory });
+    return res.json(inMemory);
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'Failed to list workflows' });
   }
@@ -22,18 +22,24 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const body = req.body || {};
+    // Sanitize payload
+    const payload: any = {
+      name: body.name,
+      description: body.description,
+      steps: Array.isArray(body.steps) ? body.steps : [],
+      tags: Array.isArray(body.tags) ? body.tags : [],
+      phases: Array.isArray(body.phases) ? body.phases : [],
+      formData: body.formData || undefined,
+      status: body.status || 'draft'
+    };
+
     if (Workflow.db?.readyState === 1) {
-      const created = await Workflow.create({
-        name: body.name,
-        description: body.description,
-        steps: body.steps || [],
-        tags: body.tags || []
-      });
-      return res.status(201).json({ workflow: created });
+      const created = await Workflow.create(payload);
+      return res.status(201).json(created);
     }
-    const wf = { id: `${Date.now()}`, ...body, createdAt: new Date().toISOString() };
+    const wf = { id: `${Date.now()}`, ...payload, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     inMemory.push(wf);
-    return res.status(201).json({ workflow: wf });
+    return res.status(201).json(wf);
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'Failed to create workflow' });
   }
@@ -45,11 +51,11 @@ router.get('/:id', async (req: Request, res: Response) => {
     if (Workflow.db?.readyState === 1) {
       const wf = await Workflow.findById(id).lean();
       if (!wf) return res.status(404).json({ error: 'Workflow not found' });
-      return res.json({ workflow: wf });
+      return res.json(wf);
     }
     const wf = inMemory.find(w => w.id === id);
     if (!wf) return res.status(404).json({ error: 'Workflow not found' });
-    return res.json({ workflow: wf });
+    return res.json(wf);
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'Failed to fetch workflow' });
   }
@@ -62,12 +68,12 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (Workflow.db?.readyState === 1) {
       const updated = await Workflow.findByIdAndUpdate(id, body, { new: true }).lean();
       if (!updated) return res.status(404).json({ error: 'Workflow not found' });
-      return res.json({ workflow: updated });
+      return res.json(updated);
     }
     const idx = inMemory.findIndex(w => w.id === id);
     if (idx === -1) return res.status(404).json({ error: 'Workflow not found' });
     inMemory[idx] = { ...inMemory[idx], ...body, updatedAt: new Date().toISOString() };
-    return res.json({ workflow: inMemory[idx] });
+    return res.json(inMemory[idx]);
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'Failed to update workflow' });
   }
