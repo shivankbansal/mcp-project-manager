@@ -99,17 +99,180 @@ router.delete('/:id', async (req: Request, res: Response) => {
 router.post('/:id/execute', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const { stepIndex } = req.body || {};
+
+    // Generate content based on the step phase
+    const generateContent = (step: any, prompt: string) => {
+      const phase = step?.phase || 'unknown';
+      const title = step?.title || phase;
+      
+      const templates: Record<string, string> = {
+        brd: `## Business Requirements Document
+
+### Project Overview
+${prompt}
+
+### Goals & Objectives
+1. Deliver a comprehensive solution addressing the core requirements
+2. Ensure scalability and maintainability
+3. Optimize for user experience and performance
+
+### Functional Requirements
+- User authentication and authorization
+- Core business logic implementation
+- Data management and persistence
+- API integrations as needed
+
+### Non-Functional Requirements
+- Performance: Response time < 2 seconds
+- Availability: 99.9% uptime
+- Security: Industry-standard encryption
+- Scalability: Support 10,000+ concurrent users
+
+### Success Criteria
+- All functional requirements implemented
+- User acceptance testing passed
+- Performance benchmarks met`,
+
+        design: `## Design & Wireframes Specification
+
+### Design System
+Based on: ${prompt}
+
+### Color Palette
+- Primary: #2563EB (Blue)
+- Secondary: #10B981 (Green)  
+- Background: #0F172A (Dark Slate)
+- Text: #F8FAFC (Light)
+
+### Typography
+- Headings: Inter Bold
+- Body: Inter Regular
+- Code: JetBrains Mono
+
+### Key Screens
+1. **Dashboard** - Overview with key metrics and quick actions
+2. **Main Workflow** - Primary user interaction area
+3. **Settings** - Configuration and preferences
+4. **Reports** - Analytics and data visualization
+
+### Component Library
+- Buttons (Primary, Secondary, Ghost)
+- Input fields with validation states
+- Cards with hover effects
+- Navigation (sidebar + top bar)
+- Modals and dialogs`,
+
+        journey: `## User Journey Map
+
+### Project Context
+${prompt}
+
+### Primary User Personas
+1. **Admin User** - Full system access, configuration capabilities
+2. **Standard User** - Core feature access, limited settings
+3. **Guest User** - Read-only access to public features
+
+### Key User Flows
+
+#### Flow 1: Onboarding
+\`\`\`
+Landing → Sign Up → Verify Email → Profile Setup → Dashboard
+\`\`\`
+
+#### Flow 2: Core Workflow
+\`\`\`
+Login → Dashboard → Select Action → Execute → Review Results → Save/Export
+\`\`\`
+
+#### Flow 3: Settings Management
+\`\`\`
+Dashboard → Settings → Update Preferences → Save → Confirmation
+\`\`\`
+
+### Pain Points Addressed
+- Simplified navigation with clear CTAs
+- Progressive disclosure of complex features
+- Contextual help and tooltips
+- Quick access to frequently used actions`,
+
+        testing: `## Test Cases & QA Plan
+
+### Project Scope
+${prompt}
+
+### Test Categories
+
+#### Unit Tests
+- [ ] Authentication service methods
+- [ ] Data validation functions
+- [ ] Business logic calculations
+- [ ] Utility helpers
+
+#### Integration Tests
+- [ ] API endpoint responses
+- [ ] Database CRUD operations
+- [ ] Third-party service integrations
+- [ ] Authentication flow
+
+#### E2E Tests
+- [ ] User registration and login
+- [ ] Main workflow completion
+- [ ] Settings modification
+- [ ] Error handling scenarios
+
+### Performance Tests
+- Load test: 1000 concurrent users
+- Stress test: System limits identification
+- Endurance test: 24-hour stability
+
+### Security Tests
+- [ ] Input validation (XSS, SQL injection)
+- [ ] Authentication bypass attempts
+- [ ] Authorization boundary testing
+- [ ] Data encryption verification
+
+### Acceptance Criteria
+- 90% code coverage minimum
+- All critical paths tested
+- Performance benchmarks passed
+- Zero high-severity bugs`
+      };
+
+      return templates[phase] || `## ${title}\n\nGenerated content for: ${prompt}`;
+    };
+
     if (Workflow.db?.readyState === 1) {
       const wf = await Workflow.findById(id);
       if (!wf) return res.status(404).json({ error: 'Workflow not found' });
+      
+      const steps = (wf as any).steps || [];
+      const prompt = (wf as any).formData?.initialPrompt || (wf as any).description || 'Project';
+      
+      if (typeof stepIndex === 'number' && steps[stepIndex]) {
+        const step = steps[stepIndex];
+        const content = generateContent(step, prompt);
+        steps[stepIndex] = { ...step, status: 'completed', result: { content, generatedAt: new Date().toISOString() } };
+        wf.set('steps', steps);
+      }
+      
       wf.set('lastRunAt', new Date());
       await wf.save();
-      return res.json({ status: 'queued', workflowId: wf.id });
+      return res.json({ status: 'completed', workflowId: wf.id, result: steps[stepIndex]?.result });
     }
+    
     const wf = inMemory.find((w: any) => w.id === id);
     if (!wf) return res.status(404).json({ error: 'Workflow not found' });
+    
+    const prompt = wf.formData?.initialPrompt || wf.description || 'Project';
+    if (typeof stepIndex === 'number' && wf.steps?.[stepIndex]) {
+      const step = wf.steps[stepIndex];
+      const content = generateContent(step, prompt);
+      wf.steps[stepIndex] = { ...step, status: 'completed', result: { content, generatedAt: new Date().toISOString() } };
+    }
+    
     wf.lastRunAt = new Date().toISOString();
-    return res.json({ status: 'queued', workflowId: wf.id });
+    return res.json({ status: 'completed', workflowId: wf.id, result: wf.steps?.[stepIndex]?.result });
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'Failed to execute workflow' });
   }
