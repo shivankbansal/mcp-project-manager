@@ -41,7 +41,7 @@ export default function Dashboard() {
   const [quickPrompt, setQuickPrompt] = useState('')
   const [quickLoading, setQuickLoading] = useState(false)
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000'
+  const API_URL = import.meta.env.VITE_API_URL ?? ''
 
   useEffect(() => {
     console.info('[devtrifecta] boot Dashboard', { API_URL })

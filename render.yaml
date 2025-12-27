@@ -12,3 +12,18 @@ services:
         value: 20
       - key: PORT
         value: 10000
+
+  - type: web
+    name: devtrifecta-ui
+    env: node
+    plan: free
+    buildCommand: "npm --prefix frontend install && npm --prefix frontend run build"
+    startCommand: "node frontend/server.js"
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: BACKEND_URL
+        value: https://mcp-project-manager.onrender.com
+      - key: PORT
+        value: 10001
