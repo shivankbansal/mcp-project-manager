@@ -15,9 +15,9 @@ function Layout({ children }) {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">MCP</span>
+              <span className="text-white font-bold text-lg">DT</span>
             </div>
-            <h1 className="text-2xl font-bold text-white">Project Manager</h1>
+            <h1 className="text-2xl font-bold text-white">devtrifecta</h1>
           </div>
           <div className="flex gap-4">
             <button

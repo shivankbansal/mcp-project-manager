@@ -44,6 +44,7 @@ export default function Dashboard() {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000'
 
   useEffect(() => {
+    console.info('[devtrifecta] boot Dashboard', { API_URL })
     fetchWorkflows()
   }, [])
 
@@ -52,9 +53,14 @@ export default function Dashboard() {
       setLoading(true)
       const response = await axios.get(`${API_URL}/api/workflows`)
       const workflowsData = Array.isArray(response.data) ? response.data : []
+      console.debug('[devtrifecta] fetched workflows', { count: workflowsData.length })
       setWorkflows(workflowsData)
     } catch (err) {
-      console.error('Error fetching workflows:', err)
+      console.error('[devtrifecta] Error fetching workflows:', {
+        message: err?.message,
+        status: err?.response?.status,
+        data: err?.response?.data
+      })
       setError('Failed to load workflows')
       setWorkflows([])
     } finally {
@@ -75,12 +81,18 @@ export default function Dashboard() {
     try {
       setQuickLoading(true)
       setError(null)
+      console.debug('[devtrifecta] quickstart request', { promptLen: quickPrompt.trim().length })
       const response = await axios.post(`${API_URL}/api/workflows/quickstart`, { prompt: quickPrompt.trim() })
       const wf = response.data
+      console.info('[devtrifecta] quickstart created', { id: wf._id || wf.id })
       setQuickPrompt('')
       navigate(`/workflow/${wf._id || wf.id}`)
     } catch (err) {
-      console.error('Quickstart failed:', err)
+      console.error('[devtrifecta] Quickstart failed:', {
+        message: err?.message,
+        status: err?.response?.status,
+        data: err?.response?.data
+      })
       setError('Failed to create workflow from prompt')
     } finally {
       setQuickLoading(false)
@@ -91,7 +103,7 @@ export default function Dashboard() {
     <div className="space-y-10">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white">
-        <h2 className="text-3xl font-bold mb-2">Welcome to MCP Project Manager</h2>
+        <h2 className="text-3xl font-bold mb-2">Welcome to devtrifecta</h2>
         <p className="text-blue-100">
           Streamline your project workflow from requirements through design, wireframing, user journeys, and comprehensive testing.
         </p>

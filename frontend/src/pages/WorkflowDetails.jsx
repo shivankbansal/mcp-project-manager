@@ -31,6 +31,7 @@ export default function WorkflowDetails() {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000'
 
   useEffect(() => {
+    console.info('[devtrifecta] boot WorkflowDetails', { id })
     fetchWorkflow()
   }, [id])
 
@@ -45,9 +46,19 @@ export default function WorkflowDetails() {
         workflowData.phases = Array.isArray(workflowData.phases) ? workflowData.phases : []
         workflowData.questions = Array.isArray(workflowData.questions) ? workflowData.questions : []
       }
+      console.debug('[devtrifecta] fetched workflow', {
+        id: workflowData?._id || workflowData?.id,
+        steps: Array.isArray(workflowData?.steps) ? workflowData.steps.length : 0,
+        phases: Array.isArray(workflowData?.phases) ? workflowData.phases.length : 0,
+        questions: Array.isArray(workflowData?.questions) ? workflowData.questions.length : 0
+      })
       setWorkflow(workflowData)
     } catch (err) {
-      console.error('Error fetching workflow:', err)
+      console.error('[devtrifecta] Error fetching workflow:', {
+        message: err?.message,
+        status: err?.response?.status,
+        data: err?.response?.data
+      })
       setError('Failed to load workflow')
     } finally {
       setLoading(false)
@@ -57,6 +68,7 @@ export default function WorkflowDetails() {
   const executeStep = async (stepIndex) => {
     try {
       setExecuting(true)
+      console.debug('[devtrifecta] execute step', { stepIndex })
       const response = await axios.post(`${API_URL}/api/workflows/${id}/execute`, {
         stepIndex: stepIndex
       })
@@ -65,7 +77,11 @@ export default function WorkflowDetails() {
         [stepIndex]: response.data.result
       }))
     } catch (err) {
-      console.error('Error executing step:', err)
+      console.error('[devtrifecta] Error executing step:', {
+        message: err?.message,
+        status: err?.response?.status,
+        data: err?.response?.data
+      })
       setError('Failed to execute step')
     } finally {
       setExecuting(false)
@@ -74,6 +90,7 @@ export default function WorkflowDetails() {
 
   const updateStatus = async (newStatus) => {
     try {
+      console.debug('[devtrifecta] update status', { newStatus })
       await axios.put(`${API_URL}/api/workflows/${id}`, {
         status: newStatus
       })
@@ -82,7 +99,11 @@ export default function WorkflowDetails() {
         status: newStatus
       }))
     } catch (err) {
-      console.error('Error updating status:', err)
+      console.error('[devtrifecta] Error updating status:', {
+        message: err?.message,
+        status: err?.response?.status,
+        data: err?.response?.data
+      })
     }
   }
 
@@ -96,11 +117,16 @@ export default function WorkflowDetails() {
 
       if (payload.length === 0) return
 
+      console.debug('[devtrifecta] submit answers', { count: payload.length })
       await axios.post(`${API_URL}/api/workflows/${id}/answer`, { answers: payload })
       await fetchWorkflow()
       setAnswers({})
     } catch (err) {
-      console.error('Error submitting answers:', err)
+      console.error('[devtrifecta] Error submitting answers:', {
+        message: err?.message,
+        status: err?.response?.status,
+        data: err?.response?.data
+      })
       setError('Failed to submit answers')
     } finally {
       setSavingAnswers(false)
