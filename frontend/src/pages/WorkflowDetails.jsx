@@ -36,7 +36,13 @@ export default function WorkflowDetails() {
     try {
       setLoading(true)
       const response = await axios.get(`${API_URL}/api/workflows/${id}`)
-      setWorkflow(response.data)
+      const workflowData = response.data
+      // Ensure arrays are properly initialized
+      if (workflowData) {
+        workflowData.steps = Array.isArray(workflowData.steps) ? workflowData.steps : []
+        workflowData.phases = Array.isArray(workflowData.phases) ? workflowData.phases : []
+      }
+      setWorkflow(workflowData)
     } catch (err) {
       console.error('Error fetching workflow:', err)
       setError('Failed to load workflow')
@@ -136,7 +142,7 @@ export default function WorkflowDetails() {
         </div>
 
         {/* Phases */}
-        {workflow.phases && workflow.phases.length > 0 && (
+        {Array.isArray(workflow.phases) && workflow.phases.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {workflow.phases.map((phase) => (
               <span
@@ -153,24 +159,24 @@ export default function WorkflowDetails() {
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-          <div className="text-2xl font-bold text-blue-400">{steps.length}</div>
+          <div className="text-2xl font-bold text-blue-400">{Array.isArray(steps) ? steps.length : 0}</div>
           <p className="text-slate-300 text-sm">Total Steps</p>
         </div>
         <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
           <div className="text-2xl font-bold text-green-400">
-            {steps.filter(s => s.status === 'completed').length}
+            {Array.isArray(steps) ? steps.filter(s => s.status === 'completed').length : 0}
           </div>
           <p className="text-slate-300 text-sm">Completed</p>
         </div>
         <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
           <div className="text-2xl font-bold text-yellow-400">
-            {steps.filter(s => s.status === 'in-progress').length}
+            {Array.isArray(steps) ? steps.filter(s => s.status === 'in-progress').length : 0}
           </div>
           <p className="text-slate-300 text-sm">In Progress</p>
         </div>
         <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
           <div className="text-2xl font-bold text-slate-300">
-            {Math.round((steps.filter(s => s.status === 'completed').length / steps.length) * 100) || 0}%
+            {Array.isArray(steps) && steps.length > 0 ? Math.round((steps.filter(s => s.status === 'completed').length / steps.length) * 100) : 0}%
           </div>
           <p className="text-slate-300 text-sm">Progress</p>
         </div>
@@ -186,7 +192,7 @@ export default function WorkflowDetails() {
           </div>
         ) : (
           <div className="space-y-3">
-            {steps.map((step, index) => (
+            {Array.isArray(steps) && steps.map((step, index) => (
               <div
                 key={step.id || index}
                 className="bg-slate-700/50 border border-slate-600 rounded-lg overflow-hidden"

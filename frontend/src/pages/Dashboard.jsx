@@ -49,10 +49,12 @@ export default function Dashboard() {
     try {
       setLoading(true)
       const response = await axios.get(`${API_URL}/api/workflows`)
-      setWorkflows(response.data || [])
+      const workflowsData = Array.isArray(response.data) ? response.data : []
+      setWorkflows(workflowsData)
     } catch (err) {
       console.error('Error fetching workflows:', err)
       setError('Failed to load workflows')
+      setWorkflows([])
     } finally {
       setLoading(false)
     }
@@ -90,7 +92,7 @@ export default function Dashboard() {
               <h4 className="text-lg font-bold text-white mb-2">{template.name}</h4>
               <p className="text-slate-300 text-sm mb-4">{template.description}</p>
               <div className="flex flex-wrap gap-2">
-                {template.phases.map((phase) => (
+                {Array.isArray(template.phases) && template.phases.map((phase) => (
                   <span
                     key={phase}
                     className={`text-xs px-2 py-1 rounded-full font-semibold badge-status ${
