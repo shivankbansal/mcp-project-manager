@@ -16,13 +16,14 @@ console.log('[devtrifecta] Server config:', { backendUrl, port, distPath: path.j
 
 app.use(compression())
 
-// Proxy API to backend with better error handling
-app.use('/api', createProxyMiddleware({
+// Proxy API to backend - mount at root with context filter to preserve /api path
+app.use(createProxyMiddleware({
   target: backendUrl,
   changeOrigin: true,
   followRedirects: true,
+  pathFilter: '/api',
   onProxyReq: (proxyReq, req, res) => {
-    console.log(`[devtrifecta] Proxy: ${req.method} ${req.originalUrl} → ${backendUrl}${req.url}`)
+    console.log(`[devtrifecta] Proxy: ${req.method} ${req.originalUrl} → ${backendUrl}${req.originalUrl}`)
   },
   onProxyRes: (proxyRes, req, res) => {
     console.log(`[devtrifecta] Proxy response: ${proxyRes.statusCode} for ${req.originalUrl}`)
