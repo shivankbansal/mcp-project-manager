@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 // Basic axios logging for debugging in console
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000'
+const API_URL = import.meta.env.VITE_API_URL ?? ''
 
 console.info('[devtrifecta] axios setup', { API_URL })
 
