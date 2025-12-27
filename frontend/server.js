@@ -21,9 +21,6 @@ app.use('/api', createProxyMiddleware({
   target: backendUrl,
   changeOrigin: true,
   followRedirects: true,
-  pathRewrite: {
-    '^/api': ''
-  },
   onProxyReq: (proxyReq, req, res) => {
     console.log(`[devtrifecta] Proxy: ${req.method} ${req.originalUrl} → ${backendUrl}${req.url}`)
   },
