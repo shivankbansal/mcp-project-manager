@@ -1429,9 +1429,9 @@ Format everything in clean, professional Markdown with proper hierarchy.`
   
   if (provider === 'gemini' && gemini) {
     const model = gemini.getGenerativeModel({ 
-      model: 'gemini-1.5-pro',  // Upgraded to pro for better quality
+      model: 'gemini-2.0-flash-exp',  // Using latest experimental flash model
       generationConfig: {
-        maxOutputTokens: 16000,  // Increased significantly
+        maxOutputTokens: 8192,  // Gemini limit
         temperature: 0.75
       }
     });
@@ -1441,7 +1441,7 @@ Format everything in clean, professional Markdown with proper hierarchy.`
     return {
       content: response.text() || 'No content generated',
       provider: 'gemini',
-      model: 'gemini-1.5-pro'
+      model: 'gemini-2.0-flash-exp'
     };
   }
   
