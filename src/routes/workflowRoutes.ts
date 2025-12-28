@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { Workflow } from '../models/Workflow.js';
-import { generateContent as generateAIContent, getAvailableProviders, AIProvider } from '../services/aiService.js';
+import { generateContent as generateAIContent, generateContentStream, getAvailableProviders, AIProvider } from '../services/aiService.js';
 
 const router = Router();
 
@@ -293,6 +293,173 @@ This is a placeholder template. Configure OPENAI_API_KEY or GOOGLE_API_KEY envir
   
   return templates[phase] || `# ${phase}\n\n${projectDescription}`;
 }
+
+// Real-time streaming workflow generation
+router.post('/generate/stream', async (req: Request, res: Response) => {
+  try {
+    const { prompt, provider = 'auto', phases: requestedPhases } = req.body || {};
+
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ error: 'prompt is required' });
+    }
+
+    // Set up SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+
+    const sendEvent = (event: string, data: any) => {
+      res.write(`event: ${event}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    // Determine phases to generate
+    const allPhases = ['brd', 'design', 'journey', 'testing'];
+    const phases = Array.isArray(requestedPhases) && requestedPhases.length > 0
+      ? requestedPhases
+      : allPhases;
+
+    const phaseNames: Record<string, string> = {
+      brd: 'Business Requirements',
+      design: 'Design & Wireframes',
+      journey: 'User Journeys',
+      testing: 'Test Cases'
+    };
+
+    sendEvent('workflow_start', {
+      phases,
+      totalPhases: phases.length,
+      message: 'Starting workflow generation...'
+    });
+
+    const workflowSteps: any[] = [];
+    let workflowId: string | null = null;
+
+    try {
+      // Generate each phase sequentially with streaming
+      for (let i = 0; i < phases.length; i++) {
+        const phase = phases[i];
+        const phaseName = phaseNames[phase] || phase;
+
+        sendEvent('phase_start', {
+          phase,
+          phaseName,
+          phaseIndex: i,
+          totalPhases: phases.length,
+          message: `Generating ${phaseName}...`
+        });
+
+        let fullContent = '';
+        let wordCount = 0;
+        const startTime = Date.now();
+
+        try {
+          // Stream content generation
+          for await (const chunk of generateContentStream(phase, prompt, undefined, provider as AIProvider)) {
+            if (!chunk.done) {
+              fullContent += chunk.chunk;
+              wordCount = fullContent.split(/\s+/).length;
+
+              sendEvent('content_chunk', {
+                phase,
+                chunk: chunk.chunk,
+                wordCount,
+                metadata: chunk.metadata
+              });
+            }
+          }
+
+          const duration = Math.round((Date.now() - startTime) / 1000);
+
+          sendEvent('phase_complete', {
+            phase,
+            phaseName,
+            phaseIndex: i,
+            wordCount,
+            duration,
+            message: `${phaseName} complete!`
+          });
+
+          workflowSteps.push({
+            id: `step-${phase}`,
+            phase,
+            title: phaseName,
+            status: 'completed',
+            order: i,
+            result: {
+              content: fullContent,
+              generatedAt: new Date().toISOString(),
+              aiGenerated: true,
+              wordCount,
+              duration
+            }
+          });
+
+        } catch (phaseError: any) {
+          sendEvent('phase_error', {
+            phase,
+            phaseName,
+            error: phaseError.message || 'Phase generation failed'
+          });
+
+          workflowSteps.push({
+            id: `step-${phase}`,
+            phase,
+            title: phaseName,
+            status: 'error',
+            order: i,
+            result: {
+              error: phaseError.message,
+              generatedAt: new Date().toISOString(),
+              aiGenerated: false
+            }
+          });
+        }
+      }
+
+      // Save the completed workflow
+      const workflowPayload: any = {
+        name: prompt.slice(0, 80),
+        description: prompt,
+        phases,
+        steps: workflowSteps,
+        status: 'completed',
+        formData: { initialPrompt: prompt }
+      };
+
+      if (Workflow.db?.readyState === 1) {
+        const created = await Workflow.create(workflowPayload);
+        workflowId = created._id?.toString() || created.id;
+      } else {
+        const wf = {
+          id: `${Date.now()}`,
+          ...workflowPayload,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        inMemory.push(wf);
+        workflowId = wf.id;
+      }
+
+      sendEvent('workflow_complete', {
+        workflowId,
+        totalPhases: phases.length,
+        message: 'All phases complete!'
+      });
+
+    } catch (error: any) {
+      sendEvent('error', {
+        message: error.message || 'Workflow generation failed'
+      });
+    }
+
+    res.end();
+  } catch (e: any) {
+    console.error('[Streaming] Error:', e);
+    res.status(500).json({ error: e?.message || 'Failed to start streaming workflow' });
+  }
+});
 
 // Quickstart: create a workflow from a single prompt and pre-generate steps
 router.post('/quickstart', async (req: Request, res: Response) => {

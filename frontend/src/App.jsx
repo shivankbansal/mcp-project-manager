@@ -4,10 +4,11 @@ import './index.css'
 import Dashboard from './pages/Dashboard'
 import WorkflowBuilder from './pages/WorkflowBuilder'
 import WorkflowDetails from './pages/WorkflowDetails'
+import WorkflowGenerator from './pages/WorkflowGenerator'
 
 function Layout({ children }) {
   const navigate = useNavigate()
-  
+
   return (
     <div className="min-h-screen bg-[#0F172A] relative overflow-hidden">
       {/* Animated Background Blobs */}
@@ -34,10 +35,16 @@ function Layout({ children }) {
               Dashboard
             </button>
             <button
-              onClick={() => navigate('/builder')}
+              onClick={() => navigate('/generate')}
               className="btn-neon-purple px-6 py-2.5 text-white rounded-xl font-bold text-sm uppercase tracking-wider"
             >
-              + New Project
+              ⚡ AI Generate
+            </button>
+            <button
+              onClick={() => navigate('/builder')}
+              className="text-sm font-bold text-slate-400 hover:text-white transition-colors uppercase tracking-widest"
+            >
+              + Manual
             </button>
           </div>
         </div>
@@ -60,6 +67,14 @@ function App() {
           element={
             <Layout>
               <Dashboard />
+            </Layout>
+          }
+        />
+        <Route
+          path="/generate"
+          element={
+            <Layout>
+              <WorkflowGenerator />
             </Layout>
           }
         />

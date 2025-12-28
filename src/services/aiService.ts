@@ -1532,3 +1532,173 @@ export function getAvailableProviders(): { openai: boolean; gemini: boolean; gro
     ollama: !!(process.env.OLLAMA_ENABLED || process.env.OLLAMA_HOST)
   };
 }
+
+// Streaming generator function for real-time content generation
+export async function* generateContentStream(
+  phase: string,
+  projectDescription: string,
+  context?: string,
+  preferredProvider: AIProvider = 'auto'
+): AsyncGenerator<{ chunk: string; done: boolean; metadata?: any }> {
+
+  const promptFn = PHASE_PROMPTS[phase];
+  if (!promptFn) {
+    throw new Error(`Unknown phase: ${phase}`);
+  }
+
+  const prompt = promptFn(projectDescription, context);
+
+  const systemPrompt = `You are an elite software consultant at a Fortune 500 consulting firm earning $500/hour.
+You create EXTREMELY detailed, comprehensive, production-ready documentation that enterprises pay tens of thousands of dollars for.
+CRITICAL: Always produce FULL content, not summaries. Fill every section with SPECIFIC details, real examples, and actionable information.
+Your output should be at MINIMUM 3000-4000 words. Never produce thin, generic content.
+Format everything in clean, professional Markdown with proper hierarchy.`;
+
+  const openai = getOpenAI();
+  const gemini = getGemini();
+  const groq = getGroq();
+  const ollama = getOllama();
+
+  let provider: 'openai' | 'gemini' | 'groq' | 'ollama';
+
+  if (preferredProvider === 'openai' && openai) {
+    provider = 'openai';
+  } else if (preferredProvider === 'gemini' && gemini) {
+    provider = 'gemini';
+  } else if (preferredProvider === 'groq' && groq) {
+    provider = 'groq';
+  } else if (preferredProvider === 'ollama' && ollama) {
+    provider = 'ollama';
+  } else if (preferredProvider === 'auto') {
+    if (groq) provider = 'groq';
+    else if (ollama) provider = 'ollama';
+    else if (openai) provider = 'openai';
+    else if (gemini) provider = 'gemini';
+    else provider = 'groq';
+  } else {
+    provider = groq ? 'groq' : ollama ? 'ollama' : openai ? 'openai' : 'gemini';
+  }
+
+  // Groq - Streaming support
+  if (provider === 'groq' && groq) {
+    console.log('[AI Service] Streaming with Groq llama-3.3-70b-versatile');
+    const stream = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 8000,
+      temperature: 0.75,
+      stream: true
+    });
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || '';
+      if (content) {
+        yield {
+          chunk: content,
+          done: false,
+          metadata: { provider: 'groq', model: 'llama-3.3-70b-versatile' }
+        };
+      }
+    }
+
+    yield { chunk: '', done: true, metadata: { provider: 'groq', model: 'llama-3.3-70b-versatile' } };
+    return;
+  }
+
+  // OpenAI - Streaming support
+  if (provider === 'openai' && openai) {
+    console.log('[AI Service] Streaming with OpenAI gpt-4o');
+    const stream = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 16000,
+      temperature: 0.75,
+      stream: true
+    });
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || '';
+      if (content) {
+        yield {
+          chunk: content,
+          done: false,
+          metadata: { provider: 'openai', model: 'gpt-4o' }
+        };
+      }
+    }
+
+    yield { chunk: '', done: true, metadata: { provider: 'openai', model: 'gpt-4o' } };
+    return;
+  }
+
+  // Ollama - Streaming support
+  if (provider === 'ollama' && ollama) {
+    const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
+    console.log(`[AI Service] Streaming with Ollama ${ollamaModel}`);
+
+    const stream = await ollama.chat({
+      model: ollamaModel,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ],
+      options: {
+        temperature: 0.75,
+        num_predict: 8000
+      },
+      stream: true
+    });
+
+    for await (const chunk of stream) {
+      const content = chunk.message?.content || '';
+      if (content) {
+        yield {
+          chunk: content,
+          done: false,
+          metadata: { provider: 'ollama', model: ollamaModel }
+        };
+      }
+    }
+
+    yield { chunk: '', done: true, metadata: { provider: 'ollama', model: ollamaModel } };
+    return;
+  }
+
+  // Gemini - Fallback to non-streaming (Gemini SDK doesn't support streaming in the same way)
+  if (provider === 'gemini' && gemini) {
+    console.log('[AI Service] Using Gemini (non-streaming fallback)');
+    const model = gemini.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      generationConfig: {
+        maxOutputTokens: 8192,
+        temperature: 0.75
+      }
+    });
+    const result = await model.generateContent(prompt);
+    const content = result.response.text() || 'No content generated';
+
+    // Simulate streaming by chunking the response
+    const words = content.split(' ');
+    for (let i = 0; i < words.length; i += 10) {
+      const chunk = words.slice(i, i + 10).join(' ') + ' ';
+      yield {
+        chunk,
+        done: false,
+        metadata: { provider: 'gemini', model: 'gemini-2.0-flash' }
+      };
+      // Small delay to simulate streaming
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    yield { chunk: '', done: true, metadata: { provider: 'gemini', model: 'gemini-2.0-flash' } };
+    return;
+  }
+
+  throw new Error('No AI provider available. Set GROQ_API_KEY (free!), OLLAMA_ENABLED=true, OPENAI_API_KEY, or GOOGLE_API_KEY.');
+}

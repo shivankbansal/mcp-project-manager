@@ -11,9 +11,10 @@ A production-grade full-stack application for managing project workflows using M
 - **Test Cases**: Define comprehensive testing strategies and coverage
 
 ### 🤖 AI-Powered Tools
-- **Gemini**: Requirements generation and design assistance
-- **ChatGPT**: Code generation and test scenario creation
-- **Claude**: Code analysis and documentation
+- **Groq**: Ultra-fast inference with Llama 3.3 70B (FREE, recommended)
+- **Ollama**: Self-hosted local models for complete privacy
+- **OpenAI**: GPT-4o for highest quality documentation
+- **Gemini**: Google's AI for requirements and design assistance
 
 ### 📊 Dashboard & Workflows
 - Create workflows from predefined templates
@@ -126,9 +127,12 @@ npm run build
 
 ## 📚 Documentation
 
-- [Complete Project Documentation](PROJECT_DOCUMENTATION.md)
-- [Frontend Guide](frontend/README.md)
-- [Backend Guide](src/README.md)
+- [Complete Project Documentation](PROJECT_DOCUMENTATION.md) - Full technical guide
+- [API Reference](API_REFERENCE.md) - Complete API documentation with examples
+- [AI Providers Setup](AI_PROVIDERS.md) - Guide for Groq, Ollama, OpenAI, Gemini
+- [Contributing Guide](CONTRIBUTING.md) - How to contribute to the project
+- [Deployment Guide](DEPLOYMENT_GUIDE.md) - Deploy to Vercel/Netlify/Render
+- [Frontend Guide](frontend/README.md) - React frontend documentation
 
 ## 🔐 Environment Variables
 
@@ -137,9 +141,13 @@ npm run build
 PORT=10000
 NODE_ENV=production
 MONGODB_URI=mongodb+srv://...
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-GOOGLE_API_KEY=AIza...
+
+# AI Providers (configure at least one)
+GROQ_API_KEY=gsk-...              # Recommended: Free & fast
+OLLAMA_ENABLED=true               # Self-hosted option
+OLLAMA_MODEL=llama3.2             # Optional, default: llama3.2
+OPENAI_API_KEY=sk-...             # Optional: Highest quality
+GOOGLE_API_KEY=AIza...            # Optional: Google Gemini
 ```
 
 ### Frontend (.env.local)
