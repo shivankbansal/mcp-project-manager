@@ -1,9 +1,13 @@
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
+import { Ollama } from 'ollama';
 
 // Initialize clients (lazy - only when keys are available)
 let openaiClient: OpenAI | null = null;
 let geminiClient: GoogleGenerativeAI | null = null;
+let groqClient: Groq | null = null;
+let ollamaClient: Ollama | null = null;
 
 function getOpenAI(): OpenAI | null {
   if (!process.env.OPENAI_API_KEY) return null;
@@ -21,7 +25,25 @@ function getGemini(): GoogleGenerativeAI | null {
   return geminiClient;
 }
 
-export type AIProvider = 'openai' | 'gemini' | 'auto';
+function getGroq(): Groq | null {
+  if (!process.env.GROQ_API_KEY) return null;
+  if (!groqClient) {
+    groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  }
+  return groqClient;
+}
+
+function getOllama(): Ollama | null {
+  // Ollama runs locally or on a specified host
+  const ollamaHost = process.env.OLLAMA_HOST || 'http://localhost:11434';
+  if (!process.env.OLLAMA_ENABLED && !process.env.OLLAMA_HOST) return null;
+  if (!ollamaClient) {
+    ollamaClient = new Ollama({ host: ollamaHost });
+  }
+  return ollamaClient;
+}
+
+export type AIProvider = 'openai' | 'gemini' | 'groq' | 'ollama' | 'auto';
 
 const PHASE_PROMPTS: Record<string, (projectDescription: string, context?: string) => string> = {
   brd: (desc, ctx) => `You are a Principal Business Analyst at a Fortune 500 company with 15+ years of experience. You are creating a COMPREHENSIVE, PRODUCTION-READY Business Requirements Document (BRD) that will be used by executives, developers, designers, and QA teams.
@@ -1385,35 +1407,88 @@ export async function generateContent(
   
   const prompt = promptFn(projectDescription, context);
   
+  // System prompt for all providers
+  const systemPrompt = `You are an elite software consultant at a Fortune 500 consulting firm earning $500/hour. 
+You create EXTREMELY detailed, comprehensive, production-ready documentation that enterprises pay tens of thousands of dollars for.
+CRITICAL: Always produce FULL content, not summaries. Fill every section with SPECIFIC details, real examples, and actionable information.
+Your output should be at MINIMUM 3000-4000 words. Never produce thin, generic content.
+Format everything in clean, professional Markdown with proper hierarchy.`;
+
   // Determine which provider to use
   const openai = getOpenAI();
   const gemini = getGemini();
+  const groq = getGroq();
+  const ollama = getOllama();
   
-  let provider: 'openai' | 'gemini';
+  let provider: 'openai' | 'gemini' | 'groq' | 'ollama';
   
   if (preferredProvider === 'openai' && openai) {
     provider = 'openai';
   } else if (preferredProvider === 'gemini' && gemini) {
     provider = 'gemini';
+  } else if (preferredProvider === 'groq' && groq) {
+    provider = 'groq';
+  } else if (preferredProvider === 'ollama' && ollama) {
+    provider = 'ollama';
   } else if (preferredProvider === 'auto') {
-    // Prefer OpenAI if available, fallback to Gemini
-    provider = openai ? 'openai' : gemini ? 'gemini' : 'openai';
+    // Priority: Groq (free & fast) > Ollama (self-hosted) > OpenAI > Gemini
+    if (groq) provider = 'groq';
+    else if (ollama) provider = 'ollama';
+    else if (openai) provider = 'openai';
+    else if (gemini) provider = 'gemini';
+    else provider = 'groq'; // Will fail with helpful error
   } else {
-    provider = openai ? 'openai' : 'gemini';
+    provider = groq ? 'groq' : ollama ? 'ollama' : openai ? 'openai' : 'gemini';
+  }
+  
+  // Groq - Fast inference with Llama/Mixtral (FREE tier available!)
+  if (provider === 'groq' && groq) {
+    console.log('[AI Service] Using Groq with llama-3.3-70b-versatile');
+    const response = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',  // Powerful 70B model, free tier
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 8000,
+      temperature: 0.75
+    });
+    
+    return {
+      content: response.choices[0]?.message?.content || 'No content generated',
+      provider: 'groq',
+      model: 'llama-3.3-70b-versatile'
+    };
+  }
+  
+  // Ollama - Self-hosted LLMs (completely free, runs locally)
+  if (provider === 'ollama' && ollama) {
+    const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
+    console.log(`[AI Service] Using Ollama with ${ollamaModel}`);
+    const response = await ollama.chat({
+      model: ollamaModel,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ],
+      options: {
+        temperature: 0.75,
+        num_predict: 8000
+      }
+    });
+    
+    return {
+      content: response.message?.content || 'No content generated',
+      provider: 'ollama',
+      model: ollamaModel
+    };
   }
   
   if (provider === 'openai' && openai) {
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',  // Upgraded to gpt-4o for higher quality
       messages: [
-        { 
-          role: 'system', 
-          content: `You are an elite software consultant at a Fortune 500 consulting firm earning $500/hour. 
-You create EXTREMELY detailed, comprehensive, production-ready documentation that enterprises pay tens of thousands of dollars for.
-CRITICAL: Always produce FULL content, not summaries. Fill every section with SPECIFIC details, real examples, and actionable information.
-Your output should be at MINIMUM 3000-4000 words. Never produce thin, generic content.
-Format everything in clean, professional Markdown with proper hierarchy.` 
-        },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ],
       max_tokens: 16000,  // Increased significantly for comprehensive output
@@ -1446,12 +1521,14 @@ Format everything in clean, professional Markdown with proper hierarchy.`
     };
   }
   
-  throw new Error('No AI provider available. Please set OPENAI_API_KEY or GOOGLE_API_KEY environment variable.');
+  throw new Error('No AI provider available. Set GROQ_API_KEY (free!), OLLAMA_ENABLED=true, OPENAI_API_KEY, or GOOGLE_API_KEY.');
 }
 
-export function getAvailableProviders(): { openai: boolean; gemini: boolean } {
+export function getAvailableProviders(): { openai: boolean; gemini: boolean; groq: boolean; ollama: boolean } {
   return {
     openai: !!process.env.OPENAI_API_KEY,
-    gemini: !!process.env.GOOGLE_API_KEY
+    gemini: !!process.env.GOOGLE_API_KEY,
+    groq: !!process.env.GROQ_API_KEY,
+    ollama: !!(process.env.OLLAMA_ENABLED || process.env.OLLAMA_HOST)
   };
 }

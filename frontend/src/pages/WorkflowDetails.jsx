@@ -220,7 +220,7 @@ export default function WorkflowDetails() {
   const steps = workflow.steps || []
   const questions = Array.isArray(workflow.questions) ? workflow.questions : []
   const unanswered = questions.filter(q => !q?.answer)
-  const hasAI = aiProviders.openai || aiProviders.gemini
+  const hasAI = aiProviders.openai || aiProviders.gemini || aiProviders.groq || aiProviders.ollama
   const completedSteps = steps.filter(s => s.status === 'completed').length
   const progress = steps.length > 0 ? Math.round((completedSteps / steps.length) * 100) : 0
 
@@ -238,7 +238,7 @@ export default function WorkflowDetails() {
       {!hasAI && (
         <div className="glass-card border-yellow-500/20 bg-yellow-500/10 p-4 text-yellow-300">
           <strong className="font-black uppercase tracking-widest text-xs">⚠️ No AI Found:</strong> 
-          <p className="text-sm mt-1 font-medium">Set OPENAI_API_KEY or GOOGLE_API_KEY in your backend env to unlock the magic.</p>
+          <p className="text-sm mt-1 font-medium">Set GROQ_API_KEY (free!), OLLAMA_ENABLED, OPENAI_API_KEY, or GOOGLE_API_KEY in your backend env.</p>
         </div>
       )}
 
@@ -307,8 +307,10 @@ export default function WorkflowDetails() {
                   className="w-full glass-input px-3 py-2 text-xs font-bold"
                 >
                   <option value="auto">🤖 Auto-Pilot</option>
-                  {aiProviders.openai && <option value="openai">OpenAI GPT-4</option>}
-                  {aiProviders.gemini && <option value="gemini">Google Gemini</option>}
+                  {aiProviders.groq && <option value="groq">⚡ Groq Llama-70B (FREE)</option>}
+                  {aiProviders.ollama && <option value="ollama">🦙 Ollama (Self-Hosted)</option>}
+                  {aiProviders.openai && <option value="openai">🧠 OpenAI GPT-4o</option>}
+                  {aiProviders.gemini && <option value="gemini">💎 Google Gemini</option>}
                 </select>
               </div>
               <button
