@@ -1428,10 +1428,11 @@ Format everything in clean, professional Markdown with proper hierarchy.`
   }
   
   if (provider === 'gemini' && gemini) {
+    console.log('[AI Service] Using Gemini model: gemini-pro');
     const model = gemini.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-exp',  // Using latest experimental flash model
+      model: 'gemini-pro',  // Using stable gemini-pro model
       generationConfig: {
-        maxOutputTokens: 8192,  // Gemini limit
+        maxOutputTokens: 8192,
         temperature: 0.75
       }
     });
@@ -1441,7 +1442,7 @@ Format everything in clean, professional Markdown with proper hierarchy.`
     return {
       content: response.text() || 'No content generated',
       provider: 'gemini',
-      model: 'gemini-2.0-flash-exp'
+      model: 'gemini-pro'
     };
   }
   
