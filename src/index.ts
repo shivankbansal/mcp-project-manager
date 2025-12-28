@@ -76,3 +76,4 @@ class ProjectManagerServer {
 
 const server = new ProjectManagerServer();
 server.start().catch((e) => { console.error('Failed to start MCP Project Manager:', e); process.exit(1); });
+// Build trigger: Sun Dec 28 06:39:09 IST 2025
