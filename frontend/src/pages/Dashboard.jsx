@@ -53,14 +53,9 @@ export default function Dashboard() {
       setLoading(true)
       const response = await axios.get(`${API_URL}/api/workflows`)
       const workflowsData = Array.isArray(response.data) ? response.data : []
-      console.debug('[devtrifecta] fetched workflows', { count: workflowsData.length })
       setWorkflows(workflowsData)
     } catch (err) {
-      console.error('[devtrifecta] Error fetching workflows:', {
-        message: err?.message,
-        status: err?.response?.status,
-        data: err?.response?.data
-      })
+      console.error('[devtrifecta] Error fetching workflows:', err)
       setError('Failed to load workflows')
       setWorkflows([])
     } finally {
@@ -72,27 +67,17 @@ export default function Dashboard() {
     navigate('/builder', { state: { templateId } })
   }
 
-  const handleWorkflowClick = (workflowId) => {
-    navigate(`/workflow/${workflowId}`)
-  }
-
   const handleQuickStart = async () => {
     if (!quickPrompt.trim()) return
     try {
       setQuickLoading(true)
       setError(null)
-      console.debug('[devtrifecta] quickstart request', { promptLen: quickPrompt.trim().length })
       const response = await axios.post(`${API_URL}/api/workflows/quickstart`, { prompt: quickPrompt.trim() })
       const wf = response.data
-      console.info('[devtrifecta] quickstart created', { id: wf._id || wf.id })
       setQuickPrompt('')
       navigate(`/workflow/${wf._id || wf.id}`)
     } catch (err) {
-      console.error('[devtrifecta] Quickstart failed:', {
-        message: err?.message,
-        status: err?.response?.status,
-        data: err?.response?.data
-      })
+      console.error('[devtrifecta] Quickstart failed:', err)
       setError('Failed to create workflow from prompt')
     } finally {
       setQuickLoading(false)
@@ -100,62 +85,86 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-10">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white">
-        <h2 className="text-3xl font-bold mb-2">Welcome to devtrifecta</h2>
-        <p className="text-blue-100">
-          Streamline your project workflow from requirements through design, wireframing, user journeys, and comprehensive testing.
-        </p>
-      </div>
-
-      {/* Quick Start Section */}
-      <div className="space-y-4">
-        <h3 className="text-2xl font-bold text-white">Quick Start</h3>
-        <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-6">
-          <label className="block text-slate-300 mb-2">Describe your project (one prompt is enough):</label>
-          <textarea
-            className="form-textarea bg-slate-800/50 border-slate-600 text-white"
-            placeholder="e.g., Build a SaaS dashboard for SMB analytics with Stripe billing and role-based access"
-            value={quickPrompt}
-            onChange={e => setQuickPrompt(e.target.value)}
-          />
-          <div className="mt-3 flex gap-3">
-            <button onClick={handleQuickStart} disabled={quickLoading || !quickPrompt.trim()} className={`btn-primary ${quickLoading || !quickPrompt.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}>
-              {quickLoading ? 'Generating…' : 'Generate Workflow'}
-            </button>
-            <span className="text-slate-400 text-sm">We’ll generate BRD, Design, Journeys, and Test Cases and ask follow-ups only if needed.</span>
-          </div>
+    <div className="space-y-12">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden rounded-[32px] p-12 bg-gradient-to-br from-genz-purple via-purple-600 to-genz-pink shadow-2xl shadow-purple-500/20">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+        <div className="relative z-10 max-w-2xl">
+          <span className="inline-block px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-white text-xs font-black uppercase tracking-widest mb-6">
+            ✨ AI-Powered Magic
+          </span>
+          <h2 className="text-5xl md:text-6xl font-black text-white tracking-tighter leading-none mb-6">
+            Ship your ideas <br />
+            <span className="text-genz-yellow">faster than ever.</span>
+          </h2>
+          <p className="text-xl text-purple-100 font-medium mb-8 leading-relaxed">
+            From zero to BRD, Design, and Test Cases in seconds. Stop wasting time on docs, start building.
+          </p>
         </div>
       </div>
 
-      {/* Templates Section */}
-      <div className="space-y-4">
-        <h3 className="text-2xl font-bold text-white">Start with a Template</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Quick Start Bento */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bento-item bg-gradient-to-br from-slate-800 to-slate-900 border-white/5">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-genz-cyan/20 rounded-xl flex items-center justify-center text-genz-cyan text-xl">🚀</div>
+            <h3 className="text-2xl font-black tracking-tight text-white">Quick Launch</h3>
+          </div>
+          <div className="space-y-4">
+            <textarea
+              className="w-full h-32 glass-input p-4 text-lg font-medium placeholder:text-slate-500 resize-none"
+              placeholder="What are we building today? (e.g. 'A Tinder for finding coding partners')"
+              value={quickPrompt}
+              onChange={e => setQuickPrompt(e.target.value)}
+            />
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm text-slate-400 font-medium">
+                AI will handle the boring stuff. You handle the vision.
+              </p>
+              <button 
+                onClick={handleQuickStart} 
+                disabled={quickLoading || !quickPrompt.trim()} 
+                className={`btn-neon-purple px-8 py-3 text-white rounded-2xl font-black uppercase tracking-wider text-sm whitespace-nowrap ${quickLoading || !quickPrompt.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {quickLoading ? 'Cooking...' : 'Generate ✨'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="bento-item bg-gradient-to-br from-genz-pink/10 to-transparent border-genz-pink/20 flex flex-col justify-between">
+          <div>
+            <div className="w-12 h-12 bg-genz-pink/20 rounded-2xl flex items-center justify-center text-genz-pink text-2xl mb-6">🔥</div>
+            <h3 className="text-2xl font-black tracking-tight text-white mb-2">Templates</h3>
+            <p className="text-slate-400 font-medium">Don't know where to start? We gotchu.</p>
+          </div>
+          <button 
+            onClick={() => navigate('/builder')}
+            className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-white font-bold transition-all"
+          >
+            Browse All Templates →
+          </button>
+        </div>
+      </div>
+
+      {/* Templates Grid */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-3xl font-black tracking-tighter text-white">Starter Packs</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {WORKFLOW_TEMPLATES.map((template) => (
             <div
               key={template.id}
-              className="bg-slate-700/50 backdrop-blur-sm border border-slate-600 rounded-lg p-6 hover:bg-slate-600/70 hover:border-slate-500 transition-all cursor-pointer card-hover"
+              className="bento-item group cursor-pointer"
               onClick={() => handleStartWorkflow(template.id)}
             >
-              <div className="text-4xl mb-3">{template.icon}</div>
-              <h4 className="text-lg font-bold text-white mb-2">{template.name}</h4>
-              <p className="text-slate-300 text-sm mb-4">{template.description}</p>
+              <div className="text-5xl mb-6 group-hover:scale-125 transition-transform duration-500 origin-left">{template.icon}</div>
+              <h4 className="text-xl font-black text-white mb-2 tracking-tight">{template.name}</h4>
+              <p className="text-slate-400 text-sm font-medium mb-6 line-clamp-2">{template.description}</p>
               <div className="flex flex-wrap gap-2">
-                {Array.isArray(template.phases) && template.phases.map((phase) => (
-                  <span
-                    key={phase}
-                    className={`text-xs px-2 py-1 rounded-full font-semibold badge-status ${
-                      phase === 'BRD'
-                        ? 'badge-brd'
-                        : phase === 'Design'
-                        ? 'badge-design'
-                        : phase === 'Test Cases'
-                        ? 'badge-testing'
-                        : 'badge-journey'
-                    }`}
-                  >
+                {template.phases.slice(0, 3).map((phase) => (
+                  <span key={phase} className="text-[10px] px-2 py-1 bg-white/5 rounded-md text-slate-300 font-bold uppercase tracking-widest">
                     {phase}
                   </span>
                 ))}
@@ -165,76 +174,59 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Recent Workflows Section */}
-      <div className="space-y-4">
+      {/* Recent Workflows */}
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-2xl font-bold text-white">Recent Workflows</h3>
-          {workflows.length > 0 && (
-            <span className="text-slate-400 text-sm">{workflows.length} workflows</span>
-          )}
+          <h3 className="text-3xl font-black tracking-tighter text-white">Your Projects</h3>
+          <span className="px-3 py-1 bg-slate-800 rounded-full text-slate-400 text-xs font-bold">{workflows.length} Total</span>
         </div>
 
         {loading ? (
-          <div className="bg-slate-700/30 rounded-lg p-8 text-center">
-            <p className="text-slate-300">Loading workflows...</p>
-          </div>
-        ) : error ? (
-          <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-red-300">
-            {error}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[1, 2].map(i => (
+              <div key={i} className="h-48 glass-card animate-pulse bg-white/5"></div>
+            ))}
           </div>
         ) : workflows.length === 0 ? (
-          <div className="bg-slate-700/30 rounded-lg p-8 text-center">
-            <p className="text-slate-300 mb-4">No workflows yet. Create your first workflow!</p>
-            <button
-              onClick={() => navigate('/builder')}
-              className="btn-primary"
-            >
-              Create Workflow
+          <div className="glass-card p-12 text-center border-dashed border-2 border-white/10">
+            <p className="text-slate-400 font-bold text-xl mb-6">No projects yet. L + Ratio.</p>
+            <button onClick={() => navigate('/builder')} className="btn-neon-purple px-8 py-3 text-white rounded-2xl font-black uppercase tracking-wider">
+              Create First Project
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {workflows.map((workflow) => (
               <div
                 key={workflow._id || workflow.id}
-                className="bg-slate-700/50 backdrop-blur-sm border border-slate-600 rounded-lg p-6 hover:bg-slate-600/70 transition-all cursor-pointer"
-                onClick={() => handleWorkflowClick(workflow._id || workflow.id)}
+                className="bento-item flex items-center justify-between group cursor-pointer"
+                onClick={() => navigate(`/workflow/${workflow._id || workflow.id}`)}
               >
-                <div className="flex justify-between items-start mb-3">
-                  <h4 className="text-lg font-bold text-white flex-1">{workflow.name}</h4>
-                  <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded-full">
-                    {workflow.steps?.length || 0} steps
-                  </span>
+                <div className="flex items-center gap-6">
+                  <div className="w-16 h-16 bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl flex items-center justify-center text-3xl group-hover:rotate-12 transition-transform">
+                    {workflow.phases?.[0] === 'brd' ? '📋' : '🚀'}
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-black text-white tracking-tight group-hover:text-genz-purple transition-colors">{workflow.name}</h4>
+                    <p className="text-slate-400 text-sm font-medium line-clamp-1">{workflow.description}</p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-genz-cyan">{workflow.status || 'draft'}</span>
+                      <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        {new Date(workflow.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-slate-300 text-sm mb-4">{workflow.description}</p>
-                <div className="flex justify-between items-center text-xs text-slate-400">
-                  <span>Created: {new Date(workflow.createdAt).toLocaleDateString()}</span>
-                  <span>Status: {workflow.status || 'draft'}</span>
+                <div className="text-slate-600 group-hover:text-white transition-colors">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-6">
-          <div className="text-3xl font-bold text-blue-400 mb-1">{workflows.length}</div>
-          <p className="text-slate-300 text-sm">Total Workflows</p>
-        </div>
-        <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-6">
-          <div className="text-3xl font-bold text-green-400 mb-1">
-            {workflows.filter(w => w.status === 'completed').length}
-          </div>
-          <p className="text-slate-300 text-sm">Completed</p>
-        </div>
-        <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-6">
-          <div className="text-3xl font-bold text-yellow-400 mb-1">
-            {workflows.filter(w => w.status === 'in-progress').length}
-          </div>
-          <p className="text-slate-300 text-sm">In Progress</p>
-        </div>
       </div>
     </div>
   )

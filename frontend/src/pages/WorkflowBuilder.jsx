@@ -149,37 +149,48 @@ export default function WorkflowBuilder() {
   const progress = ((currentPhase + 1) / initialPhases.length) * 100
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      {/* Phase Selector */}
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold text-white">Create Workflow</h2>
+    <div className="max-w-4xl mx-auto space-y-10">
+      {/* Header Section */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate('/')} className="w-10 h-10 glass-card flex items-center justify-center text-slate-400 hover:text-white transition-all">
+            ←
+          </button>
+          <h2 className="text-4xl font-black text-white tracking-tighter">Manifest Project</h2>
+        </div>
         
-        {/* Progress Bar */}
-        <div className="bg-slate-700/50 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-slate-300">
-              Phase {currentPhase + 1} of {initialPhases.length}
-            </span>
-            <span className="text-sm text-slate-300">{Math.round(progress)}% Complete</span>
+        {/* Progress Bento */}
+        <div className="bento-item bg-gradient-to-br from-slate-800 to-slate-900">
+          <div className="flex items-center justify-between mb-4">
+            <div className="space-y-1">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Current Phase</p>
+              <p className="text-xl font-black text-white">
+                {WORKFLOW_PHASES[phaseIndex].icon} {WORKFLOW_PHASES[phaseIndex].title}
+              </p>
+            </div>
+            <div className="text-right space-y-1">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Progress</p>
+              <p className="text-xl font-black text-genz-purple">{Math.round(progress)}%</p>
+            </div>
           </div>
-          <div className="w-full bg-slate-600/50 rounded-full h-2">
+          <div className="w-full bg-white/5 rounded-full h-3 p-0.5 border border-white/5">
             <div
-              className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-300"
+              className="bg-gradient-to-r from-genz-purple to-genz-pink h-full rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(168,85,247,0.3)]"
               style={{ width: `${progress}%` }}
             />
           </div>
         </div>
 
-        {/* Phase Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        {/* Phase Navigation */}
+        <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
           {initialPhases.map((idx, tabIdx) => (
             <button
               key={WORKFLOW_PHASES[idx].id}
               onClick={() => setCurrentPhase(tabIdx)}
-              className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+              className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] whitespace-nowrap transition-all ${
                 currentPhase === tabIdx
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-700/50 text-slate-300 hover:bg-slate-600/70'
+                  ? 'bg-genz-purple text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                  : 'bg-white/5 text-slate-500 hover:bg-white/10'
               }`}
             >
               <span className="mr-2">{WORKFLOW_PHASES[idx].icon}</span>
@@ -191,82 +202,82 @@ export default function WorkflowBuilder() {
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-red-300">
-          {error}
+        <div className="glass-card border-red-500/20 bg-red-500/10 p-4 text-red-300 font-bold animate-shake">
+          💀 {error}
         </div>
       )}
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Phase Header */}
-        <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-lg p-6">
-          <h3 className="text-2xl font-bold text-white mb-2">
-            <span className="mr-3">{activePhase.icon}</span>
-            {activePhase.title}
+      {/* Form Bento */}
+      <div className="bento-item bg-slate-900/50">
+        <div className="mb-8">
+          <h3 className="text-2xl font-black text-white tracking-tight mb-2">
+            {WORKFLOW_PHASES[phaseIndex].title}
           </h3>
-          <p className="text-slate-300">{activePhase.description}</p>
+          <p className="text-slate-400 font-medium">{WORKFLOW_PHASES[phaseIndex].description}</p>
         </div>
 
-        {/* Phase Fields */}
-        <div className="space-y-5 bg-slate-700/30 border border-slate-600/50 rounded-lg p-6">
-          {activePhase.fields.map((field) => (
-            <div key={field.name}>
-              <label className="block text-sm font-semibold text-white mb-2">
-                {field.label}
-                {field.required && <span className="text-red-400 ml-1">*</span>}
-              </label>
-              {field.type === 'textarea' ? (
-                <textarea
-                  className="form-textarea"
-                  placeholder={field.placeholder}
-                  value={formData[field.name] || ''}
-                  onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                  required={field.required}
-                />
-              ) : (
-                <input
-                  type={field.type}
-                  className="form-input"
-                  placeholder={field.placeholder}
-                  value={formData[field.name] || ''}
-                  onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                  required={field.required}
-                />
-              )}
-            </div>
-          ))}
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {WORKFLOW_PHASES[phaseIndex].fields.map((field) => (
+              <div key={field.name} className={`space-y-2 ${field.type === 'textarea' ? 'md:col-span-2' : ''}`}>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                  {field.label} {field.required && <span className="text-genz-pink">*</span>}
+                </label>
+                {field.type === 'textarea' ? (
+                  <textarea
+                    className="glass-input w-full p-4 min-h-[120px] font-medium"
+                    placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`}
+                    value={formData[field.name] || ''}
+                    onChange={(e) => handleFieldChange(field.name, e.target.value)}
+                    required={field.required}
+                  />
+                ) : (
+                  <input
+                    type={field.type}
+                    className="glass-input w-full p-4 font-medium"
+                    placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`}
+                    value={formData[field.name] || ''}
+                    onChange={(e) => handleFieldChange(field.name, e.target.value)}
+                    required={field.required}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
 
-        {/* Navigation */}
-        <div className="flex gap-4 justify-between">
-          <button
-            type="button"
-            onClick={handlePrev}
-            disabled={currentPhase === 0}
-            className={`btn-secondary ${currentPhase === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            ← Previous
-          </button>
-
-          {currentPhase < initialPhases.length - 1 ? (
+          {/* Navigation Buttons */}
+          <div className="flex items-center justify-between pt-6 border-t border-white/5">
             <button
               type="button"
-              onClick={handleNext}
-              className="btn-primary"
+              onClick={handlePrev}
+              disabled={currentPhase === 0}
+              className={`px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${
+                currentPhase === 0 ? 'opacity-0 pointer-events-none' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+              }`}
             >
-              Next →
+              ← Back
             </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={loading}
-              className={`btn-success ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              {loading ? 'Creating...' : 'Create Workflow'}
-            </button>
-          )}
-        </div>
-      </form>
+            
+            {currentPhase === initialPhases.length - 1 ? (
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-neon-purple px-12 py-4 text-white rounded-2xl font-black uppercase tracking-widest text-xs"
+              >
+                {loading ? 'Manifesting...' : 'Launch Project 🚀'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="btn-neon-purple px-12 py-4 text-white rounded-2xl font-black uppercase tracking-widest text-xs"
+              >
+                Next Phase →
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
