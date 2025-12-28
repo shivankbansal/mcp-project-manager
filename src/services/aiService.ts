@@ -1428,9 +1428,9 @@ Format everything in clean, professional Markdown with proper hierarchy.`
   }
   
   if (provider === 'gemini' && gemini) {
-    console.log('[AI Service] Using Gemini model: gemini-pro');
+    console.log('[AI Service] Using Gemini model: gemini-1.5-flash-latest');
     const model = gemini.getGenerativeModel({ 
-      model: 'gemini-pro',  // Using stable gemini-pro model
+      model: 'gemini-1.5-flash-latest',  // Using stable flash model
       generationConfig: {
         maxOutputTokens: 8192,
         temperature: 0.75
@@ -1442,7 +1442,7 @@ Format everything in clean, professional Markdown with proper hierarchy.`
     return {
       content: response.text() || 'No content generated',
       provider: 'gemini',
-      model: 'gemini-pro'
+      model: 'gemini-1.5-flash-latest'
     };
   }
   
