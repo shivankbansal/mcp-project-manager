@@ -71,6 +71,7 @@ export function useWorkflowStream() {
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let currentEventType = 'message'
 
       while (true) {
         const { value, done } = await reader.read()
@@ -82,14 +83,15 @@ export function useWorkflowStream() {
 
         for (const line of lines) {
           if (line.startsWith('event:')) {
-            const eventType = line.slice(6).trim()
+            currentEventType = line.slice(6).trim()
             continue
           }
 
           if (line.startsWith('data:')) {
             try {
               const data = JSON.parse(line.slice(5))
-              handleSSEEvent(data, eventType || 'message')
+              handleSSEEvent(data, currentEventType)
+              currentEventType = 'message' // Reset after processing
             } catch (e) {
               console.warn('[SSE] Failed to parse data:', e)
             }
