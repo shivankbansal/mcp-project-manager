@@ -8,6 +8,12 @@ const router = Router();
 // Use MongoDB via Mongoose model; fallback in-memory if no DB connection
 const inMemory: any[] = [];
 
+// Get available AI providers - MUST be before /:id route
+router.get('/ai/providers', (req: Request, res: Response) => {
+  console.log('[AI] Checking providers:', getAvailableProviders());
+  res.json(getAvailableProviders());
+});
+
 router.get('/', async (req: Request, res: Response) => {
   try {
     if (Workflow.db?.readyState === 1) {
@@ -287,11 +293,6 @@ This is a placeholder template. Configure OPENAI_API_KEY or GOOGLE_API_KEY envir
   
   return templates[phase] || `# ${phase}\n\n${projectDescription}`;
 }
-
-// Get available AI providers
-router.get('/ai/providers', (req: Request, res: Response) => {
-  res.json(getAvailableProviders());
-});
 
 // Quickstart: create a workflow from a single prompt and pre-generate steps
 router.post('/quickstart', async (req: Request, res: Response) => {
