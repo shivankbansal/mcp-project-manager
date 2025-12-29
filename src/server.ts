@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 
 import workflowRoutes from './routes/workflowRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 import {
   securityHeaders,
   generalRateLimit,
@@ -96,6 +97,9 @@ export function createHttpServer(allTools: any[]) {
       }
     }
   );
+
+  // Authentication routes (public)
+  app.use('/api/auth', authRoutes);
 
   // Workflow routes with security
   app.use('/api/workflows', workflowRoutes);

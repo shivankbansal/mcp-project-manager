@@ -22,6 +22,7 @@ import {
   answerSubmissionSchema
 } from '../middleware/validation.js';
 import { strictRateLimit, requireAdmin } from '../middleware/security.js';
+import { requireAuth, checkUserQuota, requireAUPAcceptanceAuth, requireAdminRole } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -47,6 +48,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 router.post('/',
+  requireAuth,
   validate(createWorkflowSchema),
   async (req: Request, res: Response) => {
   try {
@@ -93,6 +95,7 @@ router.get('/:id',
 });
 
 router.put('/:id',
+  requireAuth,
   validateMongoId(),
   validate(updateWorkflowSchema),
   async (req: Request, res: Response) => {
@@ -114,8 +117,9 @@ router.put('/:id',
 });
 
 router.delete('/:id',
+  requireAuth,
   validateMongoId(),
-  requireAdmin,
+  requireAdminRole,
   async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -134,10 +138,11 @@ router.delete('/:id',
 });
 
 router.post('/:id/execute',
+  requireAuth,
   validateMongoId(),
+  requireAUPAcceptanceAuth,
+  checkUserQuota,
   aiGenerationRateLimit,
-  checkDailyQuota,
-  requireAUPAcceptance,
   enforceProviderAllowlist,
   requirePurpose,
   checkInputSafety,
@@ -336,9 +341,10 @@ This is a placeholder template. Configure OPENAI_API_KEY or GOOGLE_API_KEY envir
 
 // Real-time streaming workflow generation
 router.post('/generate/stream',
+  requireAuth,
+  requireAUPAcceptanceAuth,
+  checkUserQuota,
   aiGenerationRateLimit,
-  checkDailyQuota,
-  requireAUPAcceptance,
   enforceProviderAllowlist,
   requirePurpose,
   checkInputSafety,
@@ -511,9 +517,10 @@ router.post('/generate/stream',
 
 // Quickstart: create a workflow from a single prompt and pre-generate steps
 router.post('/quickstart',
+  requireAuth,
+  requireAUPAcceptanceAuth,
+  checkUserQuota,
   aiGenerationRateLimit,
-  checkDailyQuota,
-  requireAUPAcceptance,
   enforceProviderAllowlist,
   requirePurpose,
   checkInputSafety,
