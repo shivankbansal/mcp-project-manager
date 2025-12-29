@@ -41,11 +41,18 @@ This guide documents the Responsible AI governance framework implemented in MCP 
 - [x] MongoDB ID validation
 - [x] Admin-only DELETE protection
 
-### 🔄 In Progress (Stage 3)
+### ✅ Stage 3 Complete - High Priority Security
+
+- [x] Persistent audit logging with MongoDB + TTL indexes
+- [x] Request ID middleware for end-to-end tracing
+- [x] Request IDs in all error responses
+- [x] Admin audit log viewer endpoint (`/api/audit/ai-logs`)
+
+### 🔄 In Progress (Stage 4)
 
 - [ ] UI AUP acceptance gate
 - [ ] User-specific quotas (currently IP-based)
-- [ ] Admin audit log viewer endpoint
+- [ ] JWT-based authentication
 
 ### 📋 Roadmap
 
@@ -615,8 +622,8 @@ console.log('Denied input:', userInput);  // DON'T LOG RAW INPUT
 
 ---
 
-**Status**: ✅ Stage 2 Complete - Routes Protected
-**Next Steps**: Add UI controls (AUP dialog, rate limit feedback), admin audit viewer
-**Priority**: Medium - Core protection active, UI enhancements optional
+**Status**: ✅ Stage 3 Complete - High Priority Security
+**Next Steps**: User authentication, database-backed quotas, UI enhancements
+**Priority**: Medium - Core protection + tracing active, auth is next
 
-🤖 **PRODUCTION READY**: All AI generation endpoints are now protected with comprehensive safety guardrails!
+🤖 **PRODUCTION READY**: All AI generation endpoints are protected with comprehensive safety guardrails, persistent audit logging, and request tracing!
