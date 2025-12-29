@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
+import { AuditLog } from '../models/AuditLog.js';
 
 /**
  * Responsible AI Governance Middleware
@@ -72,13 +73,13 @@ const FORBIDDEN_PATTERNS = {
 
 // ===== AUDIT LOGGING =====
 
-interface AuditLog {
-  timestamp: string;
+interface AuditLogData {
+  timestamp: Date;
   userId: string | null;
   ip: string;
   workflowId?: string;
   provider: string;
-  model?: string;
+  aiModel?: string;
   purpose?: string;
   inputHash: string;
   inputSize: number;
@@ -87,38 +88,74 @@ interface AuditLog {
   safetyFlags?: string[];
   outputSize?: number;
   tokenCount?: number;
+  requestId: string;
 }
 
-const auditLogs: AuditLog[] = [];
+// In-memory cache for quick access (last 1000 logs)
+const auditLogsCache: AuditLogData[] = [];
 
-function logAIGeneration(log: AuditLog) {
-  auditLogs.push(log);
+async function logAIGeneration(log: AuditLogData) {
+  // Add to in-memory cache for quick access
+  auditLogsCache.push(log);
 
-  // Log to console (in production, send to logging service)
+  // Keep only last 1000 logs in memory
+  if (auditLogsCache.length > 1000) {
+    auditLogsCache.shift();
+  }
+
+  // Log to console
   console.log('[AI Audit]', JSON.stringify({
     ...log,
+    timestamp: log.timestamp.toISOString(),
     // Redact sensitive data
     inputHash: log.inputHash.substring(0, 16) + '...',
   }));
 
-  // Keep only last 10000 logs in memory (prevent memory leak)
-  if (auditLogs.length > 10000) {
-    auditLogs.shift();
-  }
-
   // Alert on deny decisions
   if (log.decision === 'deny') {
     console.warn('[AI Audit] DENIED:', log.reason, {
+      requestId: log.requestId,
       userId: log.userId,
       ip: log.ip,
       flags: log.safetyFlags
     });
   }
+
+  // Persist to database (non-blocking)
+  AuditLog.create(log).catch(err => {
+    console.error('[AI Audit] Failed to persist to database:', err.message);
+    // Don't fail the request if DB write fails
+  });
 }
 
-// Export audit logs endpoint (admin-only)
-export function getAuditLogs(limit: number = 100): AuditLog[] {
-  return auditLogs.slice(-limit);
+// Export audit logs from cache (for quick access)
+export function getAuditLogsFromCache(limit: number = 100): AuditLogData[] {
+  return auditLogsCache.slice(-limit);
+}
+
+// Export function to query from database (for admin panel)
+export async function getAuditLogsFromDB(options: {
+  limit?: number;
+  userId?: string;
+  decision?: 'allow' | 'deny';
+  startDate?: Date;
+  endDate?: Date;
+} = {}) {
+  const { limit = 100, userId, decision, startDate, endDate } = options;
+
+  const query: any = {};
+  if (userId) query.userId = userId;
+  if (decision) query.decision = decision;
+  if (startDate || endDate) {
+    query.timestamp = {};
+    if (startDate) query.timestamp.$gte = startDate;
+    if (endDate) query.timestamp.$lte = endDate;
+  }
+
+  return await AuditLog.find(query)
+    .sort({ timestamp: -1 })
+    .limit(limit)
+    .lean();
 }
 
 // ===== SAFETY CHECKS =====
@@ -188,7 +225,8 @@ export const enforceProviderAllowlist = (
     return res.status(403).json({
       error: 'Forbidden Provider',
       message: `Provider '${provider}' is not allowed`,
-      allowedProviders: ALLOWED_PROVIDERS
+      allowedProviders: ALLOWED_PROVIDERS,
+      requestId: req.id
     });
   }
 
@@ -201,7 +239,8 @@ export const enforceProviderAllowlist = (
       return res.status(403).json({
         error: 'Forbidden Model',
         message: `Model '${model}' is not allowed for provider '${provider}'`,
-        allowedModels
+        allowedModels,
+        requestId: req.id
       });
     }
   }
@@ -225,7 +264,8 @@ export const requirePurpose = (
     return res.status(400).json({
       error: 'Purpose Required',
       message: 'You must specify a purpose for this AI generation',
-      permittedPurposes: PERMITTED_PURPOSES
+      permittedPurposes: PERMITTED_PURPOSES,
+      requestId: req.id
     });
   }
 
@@ -233,7 +273,8 @@ export const requirePurpose = (
     return res.status(403).json({
       error: 'Invalid Purpose',
       message: `Purpose '${purpose}' is not permitted`,
-      permittedPurposes: PERMITTED_PURPOSES
+      permittedPurposes: PERMITTED_PURPOSES,
+      requestId: req.id
     });
   }
 
@@ -256,19 +297,20 @@ export const checkInputSafety = (
   // Create input hash for audit
   const inputHash = Buffer.from(combinedInput).toString('base64').substring(0, 32);
 
-  // Log audit entry
-  const auditLog: AuditLog = {
-    timestamp: new Date().toISOString(),
+  // Log audit entry with request ID
+  const auditLog: AuditLogData = {
+    timestamp: new Date(),
     userId: (req as any).userId || null,
     ip: req.ip || req.socket.remoteAddress || 'unknown',
     workflowId: req.params?.id,
     provider: req.body?.provider || 'auto',
-    model: req.body?.model,
+    aiModel: req.body?.model,
     purpose: req.body?.purpose,
     inputHash,
     inputSize: combinedInput.length,
     decision: safe ? 'allow' : 'deny',
-    safetyFlags: flags.length > 0 ? flags : undefined
+    safetyFlags: flags.length > 0 ? flags : undefined,
+    requestId: req.id || 'unknown'
   };
 
   if (!safe) {
@@ -279,7 +321,8 @@ export const checkInputSafety = (
       error: 'Content Safety Violation',
       message: 'Your input contains forbidden content',
       flags,
-      details: 'Please remove sensitive information like PII, credentials, or harmful content'
+      details: 'Please remove sensitive information like PII, credentials, or harmful content',
+      requestId: req.id
     });
   }
 
@@ -314,11 +357,12 @@ export const markAIOutput = (output: string, metadata: any): string => {
 export const aiGenerationRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: parseInt(process.env.GEN_RATE_LIMIT_PER_HOUR || '20'), // 20 generations per hour
-  message: {
+  message: (req: Request) => ({
     error: 'AI Generation Rate Limit Exceeded',
     message: 'Too many AI generation requests. Please try again later.',
-    retryAfter: '1 hour'
-  },
+    retryAfter: '1 hour',
+    requestId: req.id
+  }),
   standardHeaders: true,
   legacyHeaders: false,
   // Skip for health checks
@@ -352,7 +396,8 @@ export const checkDailyQuota = (
       message: `You have exceeded your daily limit of ${dailyLimit} AI generations`,
       used: quota.count,
       limit: dailyLimit,
-      resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString()
+      resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
+      requestId: req.id
     });
   }
 
@@ -376,7 +421,8 @@ export const requireAUPAcceptance = (
     return res.status(403).json({
       error: 'AUP Acceptance Required',
       message: 'You must accept the Acceptable Use Policy before using AI generation',
-      aupUrl: '/aup'
+      aupUrl: '/aup',
+      requestId: req.id
     });
   }
 

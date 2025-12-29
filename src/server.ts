@@ -9,14 +9,20 @@ import {
   getCorsOptions,
   validateRequest,
   sanitizeInput,
-  disableToolExecution
+  disableToolExecution,
+  requireAdmin
 } from './middleware/security.js';
 import { validate, toolExecutionSchema } from './middleware/validation.js';
+import { addRequestId } from './middleware/requestId.js';
+import { getAuditLogsFromDB } from './middleware/responsibleAI.js';
 
 export function createHttpServer(allTools: any[]) {
   const app = express();
 
-  // Security middleware - Apply FIRST
+  // Request ID - Apply FIRST for request tracing
+  app.use(addRequestId);
+
+  // Security middleware
   app.use(securityHeaders);
 
   // CORS with whitelist
@@ -94,11 +100,40 @@ export function createHttpServer(allTools: any[]) {
   // Workflow routes with security
   app.use('/api/workflows', workflowRoutes);
 
+  // Admin audit log viewer
+  app.get('/api/audit/ai-logs', requireAdmin, async (req, res) => {
+    try {
+      const { limit, userId, decision, startDate, endDate } = req.query;
+
+      const logs = await getAuditLogsFromDB({
+        limit: limit ? parseInt(limit as string) : 100,
+        userId: userId as string,
+        decision: decision as 'allow' | 'deny',
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined
+      });
+
+      res.json({
+        logs,
+        total: logs.length,
+        requestId: req.id
+      });
+    } catch (err: any) {
+      console.error('[Audit] Error fetching logs:', err);
+      res.status(500).json({
+        error: 'Audit Log Fetch Error',
+        message: err?.message || 'Failed to fetch audit logs',
+        requestId: req.id
+      });
+    }
+  });
+
   // 404 handler
   app.use((req, res) => {
     res.status(404).json({
       error: 'Not Found',
-      message: `Route ${req.method} ${req.path} not found`
+      message: `Route ${req.method} ${req.path} not found`,
+      requestId: req.id
     });
   });
 
@@ -112,6 +147,7 @@ export function createHttpServer(allTools: any[]) {
     res.status(err.status || 500).json({
       error: err.name || 'Internal Server Error',
       message: isDev ? err.message : 'An error occurred',
+      requestId: req.id,
       ...(isDev && { stack: err.stack })
     });
   });
