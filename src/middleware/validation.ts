@@ -42,20 +42,51 @@ export const updateWorkflowSchema = z.object({
 
 // Workflow execution schema
 export const executeWorkflowSchema = z.object({
-  phase: z.enum(['brd', 'design', 'journey', 'testing']),
-  provider: z.enum(['auto', 'openai', 'gemini', 'groq', 'ollama']).optional()
+  stepIndex: z.number().optional(),
+  phase: z.enum(['brd', 'design', 'journey', 'testing']).optional(),
+  provider: z.enum(['auto', 'openai', 'gemini', 'groq', 'ollama']).optional(),
+  purpose: z.enum([
+    'product_documentation',
+    'business_requirements',
+    'design_specifications',
+    'user_journey_mapping',
+    'test_case_generation',
+    'technical_documentation',
+    'ui_ux_design',
+    'api_documentation'
+  ]).optional()
 });
 
 // Streaming generation schema
 export const streamGenerationSchema = z.object({
   prompt: z.string().min(10).max(10000),
   provider: z.enum(['auto', 'openai', 'gemini', 'groq', 'ollama']).optional(),
-  phases: z.array(z.enum(['brd', 'design', 'journey', 'testing'])).optional()
+  phases: z.array(z.enum(['brd', 'design', 'journey', 'testing'])).optional(),
+  purpose: z.enum([
+    'product_documentation',
+    'business_requirements',
+    'design_specifications',
+    'user_journey_mapping',
+    'test_case_generation',
+    'technical_documentation',
+    'ui_ux_design',
+    'api_documentation'
+  ]).optional()
 });
 
 // Quickstart schema
 export const quickstartSchema = z.object({
-  prompt: z.string().min(10).max(10000)
+  prompt: z.string().min(10).max(10000),
+  purpose: z.enum([
+    'product_documentation',
+    'business_requirements',
+    'design_specifications',
+    'user_journey_mapping',
+    'test_case_generation',
+    'technical_documentation',
+    'ui_ux_design',
+    'api_documentation'
+  ]).optional()
 });
 
 // Tool execution schema

@@ -2,6 +2,26 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { Workflow } from '../models/Workflow.js';
 import { generateContent as generateAIContent, generateContentStream, getAvailableProviders, AIProvider } from '../services/aiService.js';
+import {
+  enforceProviderAllowlist,
+  requirePurpose,
+  checkInputSafety,
+  aiGenerationRateLimit,
+  checkDailyQuota,
+  requireAUPAcceptance,
+  markAIOutput
+} from '../middleware/responsibleAI.js';
+import {
+  validate,
+  validateMongoId,
+  createWorkflowSchema,
+  updateWorkflowSchema,
+  executeWorkflowSchema,
+  streamGenerationSchema,
+  quickstartSchema,
+  answerSubmissionSchema
+} from '../middleware/validation.js';
+import { strictRateLimit, requireAdmin } from '../middleware/security.js';
 
 const router = Router();
 
@@ -26,7 +46,9 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/',
+  validate(createWorkflowSchema),
+  async (req: Request, res: Response) => {
   try {
     const body = req.body || {};
     // Sanitize payload
@@ -52,7 +74,9 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id',
+  validateMongoId(),
+  async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     if (Workflow.db?.readyState === 1) {
@@ -68,7 +92,10 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id',
+  validateMongoId(),
+  validate(updateWorkflowSchema),
+  async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const body = req.body || {};
@@ -86,7 +113,10 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id',
+  validateMongoId(),
+  requireAdmin,
+  async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     if (Workflow.db?.readyState === 1) {
@@ -103,7 +133,17 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/:id/execute', async (req: Request, res: Response) => {
+router.post('/:id/execute',
+  validateMongoId(),
+  aiGenerationRateLimit,
+  checkDailyQuota,
+  requireAUPAcceptance,
+  enforceProviderAllowlist,
+  requirePurpose,
+  checkInputSafety,
+  strictRateLimit,
+  validate(executeWorkflowSchema),
+  async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { stepIndex, provider = 'auto' } = req.body || {};
@@ -295,7 +335,15 @@ This is a placeholder template. Configure OPENAI_API_KEY or GOOGLE_API_KEY envir
 }
 
 // Real-time streaming workflow generation
-router.post('/generate/stream', async (req: Request, res: Response) => {
+router.post('/generate/stream',
+  aiGenerationRateLimit,
+  checkDailyQuota,
+  requireAUPAcceptance,
+  enforceProviderAllowlist,
+  requirePurpose,
+  checkInputSafety,
+  validate(streamGenerationSchema),
+  async (req: Request, res: Response) => {
   try {
     const { prompt, provider = 'auto', phases: requestedPhases } = req.body || {};
 
@@ -462,7 +510,16 @@ router.post('/generate/stream', async (req: Request, res: Response) => {
 });
 
 // Quickstart: create a workflow from a single prompt and pre-generate steps
-router.post('/quickstart', async (req: Request, res: Response) => {
+router.post('/quickstart',
+  aiGenerationRateLimit,
+  checkDailyQuota,
+  requireAUPAcceptance,
+  enforceProviderAllowlist,
+  requirePurpose,
+  checkInputSafety,
+  strictRateLimit,
+  validate(quickstartSchema),
+  async (req: Request, res: Response) => {
   try {
     const { prompt } = req.body || {};
     if (!prompt || typeof prompt !== 'string') {
@@ -524,12 +581,15 @@ router.post('/quickstart', async (req: Request, res: Response) => {
 });
 
 // Answer follow-up questions and merge into formData
-router.post('/:id/answer', async (req: Request, res: Response) => {
+router.post('/:id/answer',
+  validateMongoId(),
+  validate(answerSubmissionSchema),
+  async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { answers } = req.body || {};
-    if (!Array.isArray(answers)) {
-      return res.status(400).json({ error: 'answers must be an array of {id, answer}' });
+    if (!answers || typeof answers !== 'object') {
+      return res.status(400).json({ error: 'answers must be an object' });
     }
 
     if (Workflow.db?.readyState === 1) {
@@ -537,10 +597,10 @@ router.post('/:id/answer', async (req: Request, res: Response) => {
       if (!wf) return res.status(404).json({ error: 'Workflow not found' });
       const q = Array.isArray((wf as any).questions) ? (wf as any).questions : [];
       const updatedQ = q.map((item: any) => {
-        const found = answers.find((a: any) => a.id === item.id);
-        return found ? { ...item, answer: found.answer } : item;
+        const answer = answers[item.id];
+        return answer !== undefined ? { ...item, answer } : item;
       });
-      const mergedForm = { ...(wf as any).formData, ...Object.fromEntries(answers.map((a: any) => [a.id, a.answer])) };
+      const mergedForm = { ...(wf as any).formData, ...answers };
       wf.set('questions', updatedQ);
       wf.set('formData', mergedForm);
       await wf.save();
@@ -551,10 +611,10 @@ router.post('/:id/answer', async (req: Request, res: Response) => {
     const wf = inMemory[idx];
     const q = Array.isArray(wf.questions) ? wf.questions : [];
     const updatedQ = q.map((item: any) => {
-      const found = answers.find((a: any) => a.id === item.id);
-      return found ? { ...item, answer: found.answer } : item;
+      const answer = answers[item.id];
+      return answer !== undefined ? { ...item, answer } : item;
     });
-    const mergedForm = { ...(wf.formData || {}), ...Object.fromEntries(answers.map((a: any) => [a.id, a.answer])) };
+    const mergedForm = { ...(wf.formData || {}), ...answers };
     const updated = { ...wf, questions: updatedQ, formData: mergedForm, updatedAt: new Date().toISOString() };
     inMemory[idx] = updated;
     return res.json(updated);
